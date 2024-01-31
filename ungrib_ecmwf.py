@@ -28,14 +28,13 @@ else:
 
 # default settings
 
-default_maat_daf_top = os.path.join(os.environ["HOME"],"maatdaf")
-default_maat_daf_source = os.path.join(default_maat_daf_top,"Source")
-default_maat_daf_support = os.path.join(default_maat_daf_top,"Support")
-default_maat_daf_data = os.path.join(default_maat_daf_top,"Data")
-default_maat_daf_user = os.path.join(default_maat_daf_top,"User")
-default_maat_daf_system = os.path.join(default_maat_daf_top,"System")
+default_maat_daf_top = os.path.join(os.environ["HOME"], "maatdaf")
+default_maat_daf_source = os.path.join(default_maat_daf_top, "Source")
+default_maat_daf_support = os.path.join(default_maat_daf_top, "Support")
+default_maat_daf_data = os.path.join(default_maat_daf_top, "Data")
+default_maat_daf_user = os.path.join(default_maat_daf_top, "User")
+default_maat_daf_system = os.path.join(default_maat_daf_top, "System")
 
-default_maat_daf_data = os.path.join(os.environ["HOME"],"MaatDafData")
 verbosity_levels = ['debug', 'info', 'warning', None]
 
 parser = argparse.ArgumentParser(description="method to retrieve ecmwf data for wrf",
@@ -78,7 +77,7 @@ parser.add_argument('--verbosity', choices=verbosity_levels,
 
 
 if __name__ == "__main__":
-    initial_condition_case = 'ensemble'
+    initial_condition_case = 'deterministic'
     project = UngribEcmwfClass(parser=parser)
     # define the logger
     project.__init_topography_geogrid__()
@@ -91,38 +90,19 @@ if __name__ == "__main__":
     experimental_period_end = datetime.datetime.strptime(
         project.configuration["api"]["domains"]["temporal"]["end"], "%Y%m%d%H"
     )
-
     # we need to consider that we have multiple initial conditions, which are
     # generated from ecmwf same valid time, but with different basetime and forecast step
     # options for the initial conditions are ensemble forecast or multiple deterministic
     # for the ensemble forecast the search parth is different and also there is only
     # one basetime-step-validity time
     # for the deterministic forecast this is different
+    project.__geogrid__()
     if initial_condition_case == "deterministic":
-        current_day = experimental_period_start - datetime.timedelta(days=3)
-        #current_day = datetime.datetime.strptime("20190817", "%Y%m%d")
-        project.__scan_currently_available_files__()
-        while True:
-            if current_day > experimental_period_end:
-                # clean the scratch partition
-                project.__clean_topography__()
-                break
-            project.logger.info("doing the ungrib for {}".format(current_day.strftime("%Y%m%d")))
-            #
-            # do the ungrib thing
-            #
-            project.__ungrib__(this_date=current_day.strftime("%Y%m%d"))
-            project.logger.info("The ungrib returned {}".format(project.status))
-            if project.status == False:
-                project.logger.info("Incomplete ungrib run, exit now")
-            current_day += datetime.timedelta(days=1)
+        project.__transcribe_available_oper_files__(max_step_value=12)
+        pass
     else:
-
-        # scan the grib repository
-        project.__geogrid__()
-        # first we decode the initial conditions
+        project.__transcribe_available_oper_files__(max_step_value=48)
+        #  decode the initial conditions
         project.__transcribe_available_elda_files__()
-        # then the lateral boundary conditions
-        project.__transcribe_available_oper_files__()
-        pause = -1
+    pause = -1
 
