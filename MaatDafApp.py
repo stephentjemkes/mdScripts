@@ -4,8 +4,6 @@
 # This is a control script which launches the different sub-process modules
 
 import os
-import argparse
-import socket
 
 from maatdafpy.WrfVarCycleModule import WrfVarCycleClass
 Cred = '\033[91m'
@@ -21,156 +19,27 @@ VALID_OPTIONS = {
             "start": {"type": "warm_cold", "default": "warm"},
             "genbe_v2":{"type": "true_false", "default": False}
         }
-text = {}
-text["description"] = "DESCRIPTION:\n" + \
+
+DESCRIPTION = "DESCRIPTION:\n" + \
                       'This script controls the da process . \n'
-text["description"] += "Its function is controlled by a user configuration file and options \n"
-text["description"] += "These options are provided in the form -o Option=Value Option2=Value"
-text["description"] += "Valid options are \n"
+DESCRIPTION += "Its function is controlled by a user configuration file and options \n"
+DESCRIPTION += "These options are provided in the form -o Option=Value Option2=Value"
+DESCRIPTION += "Valid options are \n"
 for key in VALID_OPTIONS:
-    text["description"] += 'Option: {0:<20s}'.format(key)
-    text["description"] += "valid values: {}\n".format(VALID_OPTIONS[key])
-text["description"] += "\n" + Cred + exstring + Cend + "\n"
-text["description"] += Cred + "Note: " + Cend + "Dual_resolution can only be used in combination with hyb4dvar\n"
-text["description"] += "and if dual_resolution is true, then automatically enkfvar will be set\n"
-text["description"] += exstring+ "\n"
-
-verbosity_levels = ['debug', 'info', 'warning', None]
-
-if "inspiron" in socket.gethostname().lower():
-    system = "dell"
-    default_hardware_configuration_file = "dell_inspiron.json"
-elif "precision" in socket.gethostname().lower():
-    system = "dell"
-    default_hardware_configuration_file = "dell_precision.json"
-    use_slurm = False
-elif "srv-w4repp" in socket.gethostname().lower():
-    system = "unknown"
-    default_hardware_configuration_file = "hermess.json"
-    use_slurm = True
-elif "lex-saturn" in socket.gethostname().lower():
-    system = "unknown"
-    default_hardware_configuration_file = "saturn.json"
-    use_slurm = False
-else:
-    system = "docker"
-    default_hardware_configuration_file = "docker.json"
-    use_slurm = False
-
-# default settings
-default_maat_daf_top = os.path.join(os.environ["HOME"],"maatdaf")
-default_maat_daf_source = os.path.join(default_maat_daf_top,"Source")
-default_maat_daf_support = os.path.join(default_maat_daf_top,"Support")
-default_maat_daf_data = os.path.join(default_maat_daf_top,"Data")
-default_maat_daf_user = os.path.join(default_maat_daf_top,"User")
-default_maat_daf_system = os.path.join(default_maat_daf_top,"System")
-
-
-parser = argparse.ArgumentParser(
-    description=text["description"],
-    formatter_class=argparse.RawDescriptionHelpFormatter
-)
-
-class StoreDictKeyPair(argparse.Action):
-    def __init__(self, option_strings, dest, nargs=None, **kwargs):
-        self._nargs = nargs
-        super(StoreDictKeyPair, self).__init__(option_strings, dest, nargs=nargs, **kwargs)
-    def __validate__(self,key, value):
-        true = ["true", "1", "t"]
-        false = ["false", "f", "0"]
-        warm = ["warm", "w", "1"]
-        cold = ["cold", "c", "0"]
-        regular = []
-        valid_options = VALID_OPTIONS
-
-        consolidated_value = None
-        if key in valid_options.keys():
-            if  valid_options[key]["type"] == "true_false":
-                if value.lower() in true:
-                    consolidated_value = True
-                elif value.lower() in false:
-                    consolidated_value = False
-                else:
-                    print ("Unkown Value {} for key {}, a type or mistake?".format(value, key))
-                    print ("Valid options are {} or {}".format(true, false))
-                    raise SystemExit(1)
-            if valid_options[key]["type"] == "warm_cold":
-                if  value.lower() in warm:
-                    consolidated_value = "warm"
-                elif value.lower() in cold:
-                    consolidated_value = "cold"
-                else:
-                    print ("Unkown Value {} for key {}, a type or mistake?".format(value, key))
-                    print ("Valid options are {} or {}".format(warm, cold))
-                    raise SystemExit(1)
-        else:
-            print ("Unkown option {} {}, a type or mistake?".format(key, value))
-            print ("Valid options and default settings")
-            for optkey in valid_options:
-                 print ("key, {} value {}".format(optkey, valid_options[optkey]))
-            print ("Correct and start again")
-            raise SystemExit(1)
-        return consolidated_value
-    def __call__(self, parser, namespace, values, option_string=None):
-        my_dict = {}
-        for kv in values:
-            k, v = kv.split("=")
-            self.__validate__(k,v)
-            my_dict[k] = self.__validate__(k,v)
-        setattr(namespace, self.dest, my_dict)
-# configuration files
-
-parser.add_argument('-c',
-                    action="count",
-                    default=0,
-                    help='Cleans the directory after an assimilation cycle and results are stored in the diagnostic partition,'
-                         'the level of cleaning depends on the number of "c", -c only limited -cc more cleaning -ccc rigorous')
-
-parser.add_argument('-y',
-                    action="count",
-                    default=0,
-                    help='To bypass the user confirmation')
-
-# the hardware configuration
-parser.add_argument("--hardware_configuration_path",
-                    default=default_maat_daf_system,
-                    help="Where the target hardware configuration file can be found")
-parser.add_argument("--hardware",
-                    default=default_hardware_configuration_file,
-                    help="The hardware configuration file")
-#
-# The application configuration data
-parser.add_argument("--api_configuration", help="The application configuration file",
-                    default=None)
-parser.add_argument("--api_configuration_path", help="The application configuration file",
-                    default=None)
-# the basic directory structure
-parser.add_argument("--MaatDafSource", help="The absolution path for maat daf source partition",
-                    default=default_maat_daf_source)
-
-parser.add_argument("--MaatDafData", help="The absolution path for maat daf data partition",
-                    default=default_maat_daf_data)
-
-parser.add_argument("--MaatDafSupport", help="The absolution path for maat daf data partition",
-                    default=default_maat_daf_support)
-#
-# final verbosity
-parser.add_argument('--verbosity', choices=verbosity_levels,
-                    default='debug',
-                    help='The level of verbosity of the software')
-
-parser.add_argument('-o', '--option', nargs='*',
-                    action=StoreDictKeyPair,
-                    help='run time options')
-
-args = parser.parse_args()
-print ("{}".format(args.option))
+    DESCRIPTION += 'Option: {0:<20s}'.format(key)
+    DESCRIPTION += "valid values: {}\n".format(VALID_OPTIONS[key])
+DESCRIPTION += "\n" + Cred + exstring + Cend + "\n"
+DESCRIPTION += Cred + "Note: " + Cend + "Dual_resolution can only be used in combination with hyb4dvar\n"
+DESCRIPTION += "and if dual_resolution is true, then automatically enkfvar will be set\n"
+DESCRIPTION += exstring+ "\n"
 
 if __name__ == "__main__":
     #
     # configure this project
     #
-    data_assimilation_project = WrfVarCycleClass(parser=parser, valid_options=VALID_OPTIONS)
+    data_assimilation_project = WrfVarCycleClass(description=DESCRIPTION,
+                                                 processing_type="assimilation",
+                                                 valid_options=VALID_OPTIONS)
     # project has been configured
     # can start with the processing
     # first step is to spin up the system
@@ -236,18 +105,18 @@ if __name__ == "__main__":
 
         # [3.0] The genbe v3
         # [3.1] is used to generate the background error covariance for the assimilation
-        if data_assimilation_project.processing["status"]["genbe"] == "start":
-            data_assimilation_project.processing["status"]["genbe"] = data_assimilation_project.__genbe_execute__()
-            data_assimilation_project.__genbe_save_diagnostics__()
-            data_assimilation_project._save_processing_state_()
+        #if data_assimilation_project.processing["status"]["genbe"] == "start":
+        #    data_assimilation_project.processing["status"]["genbe"] = data_assimilation_project.__genbe_execute__()
+        #    data_assimilation_project.__genbe_save_diagnostics__()
+        #    data_assimilation_project._save_processing_state_()
 
         # [3.0] The genbe v2
         # [3.1] is used to generate the background error covariance in netcdf format for diagnostic purposes
-        if data_assimilation_project.option["genbe_v2"]:
-            if data_assimilation_project.processing["status"]["genbe_v2"] == "start":
-                data_assimilation_project.processing["status"]["genbe_v2"] = \
-                    data_assimilation_project.__genbe_execute__(version="v2.1")
-                data_assimilation_project._save_processing_state_()
+        #if data_assimilation_project.option["genbe_v2"]:
+        #    if data_assimilation_project.processing["status"]["genbe_v2"] == "start":
+        #        data_assimilation_project.processing["status"]["genbe_v2"] = \
+        #            data_assimilation_project.__genbe_execute__(version="v2.1")
+        #        data_assimilation_project._save_processing_state_()
 
 
         if data_assimilation_project.processing["status"]["obsproc"] == "start":
